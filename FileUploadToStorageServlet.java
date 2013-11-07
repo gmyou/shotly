@@ -1,7 +1,9 @@
 package com.tgrape.shotly.servlet;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Enumeration;
@@ -18,7 +20,6 @@ import org.apache.commons.fileupload.FileItem;
 import org.apache.commons.fileupload.FileUploadException;
 import org.apache.commons.fileupload.disk.DiskFileItemFactory;
 import org.apache.commons.fileupload.servlet.ServletFileUpload;
-import org.apache.commons.io.FileSystemUtils;
 import org.apache.log4j.Logger;
 
 import com.zuntos.common.util.AesUtil;
@@ -58,8 +59,8 @@ public class FileUploadToStorageServlet extends HttpServlet {
 		//int thresHoldSize = 10 * 1024 * 1042; // 10MB 보다 작으면 메모리 저장, 크면 임시폴더에 저장
 		//long maxSize = 5 * 1024 * 1024; // 5MB
 		//String realDir = "/upload/"; 
-		//String tempDir = config.getServletContext().getRealPath("/temp/");
-		String tempDir = "/usr/local/temp/";
+//		String tempDir = config.getServletContext().getRealPath("/temp/");
+		String tempDir = "/usr/local/swifttool/";
 		System.out.print("tempDir : ");
 		System.out.println(tempDir);
 		int thresHoldSize = Integer.parseInt(this.config.getInitParameter("threshold_mb")) * 1024 * 1042; // 10MB 보다 작으면 메모리 저장, 크면 임시폴더에 저장
@@ -137,46 +138,45 @@ public class FileUploadToStorageServlet extends HttpServlet {
 					SimpleDateFormat sf = new SimpleDateFormat("yyyyMMddHHmmssSSS");
 					fileName = sf.format(new Date()) + "_"+ fileName ;
 					
-					//TODO Upload To Storage (2013-11-04, 유근명)
-					String FullFileName = tempDir+""+fileName;
-					System.out.print("FullFileName : ");
-					System.out.println(FullFileName);
+					
+					File uploadFile = new File(tempDir, fileName);
+					item.write(uploadFile);
 					
 					
-//					String path = config.getServletContext().getRealPath("/upload/");
-					String path = "/usr/local/swifttool/";
 					
-					System.out.print("path : ");
-					System.out.println(path);
 					
+					
+					//TODO Upload To Storage (2013-11-04, 유근명)					
 					
 					System.out.print("bash : ");
-					String cmd = "cd "+path+" & ";
-					cmd += "python st -A https://ssproxy.ucloudbiz.olleh.com/auth/v1.0 -K MTM4MTg5MjYwOTEzODE4OTI1MDQzMzcx -U cloud02@tgrape.com upload upload "+FullFileName;
+					String cmd = tempDir+"swift.sh upload upload "+fileName;
 					System.out.println(cmd);
 					
+//					String logFile = tempDir+"upload.list";
 					
-					Process p = null;
 					
 					try {
-						p = Runtime.getRuntime().exec(new String[]{"bash","-c",cmd});
-					} catch(Exception e) {
-						System.out.println("Fail Upload To Storage");
-						System.out.println(e.getMessage());
-					} finally {
-						p.destroy();
-					}
+						String[] command = {"/bin/sh", "-c", cmd};
+
+						Process p = Runtime.getRuntime().exec(command);
+						p.waitFor();
+			            System.out.println("return code: "+ p.exitValue());
+					} catch (IOException e) {
+			            System.err.println("IO error: " + e);
+			        } catch (InterruptedException e1) {
+			            System.err.println("Exception: " + e1.getMessage());
+			        }
 					
 
 					
 
-					/*
-					File uploadFile = new File(realDir, fileName);
-					item.write(uploadFile);
-					*/
+					
+
 					
 					
-//					item.delete(); // 임시파일 삭제
+					
+					item.delete(); // 임시파일 삭제
+					uploadFile.delete();	//저장파일 삭제
 					
 					
 					// 2013.04.08 - 서버 도메인 수정
@@ -213,12 +213,6 @@ public class FileUploadToStorageServlet extends HttpServlet {
 		}
 	}
 	
-
-
-	private String getParameter(String version) {
-		// TODO Auto-generated method stub
-		return null;
-	}
 
 	private void sendResult(String errCode, String errMsg, HttpServletResponse res) throws IOException{
 		StringBuffer buf = new StringBuffer();
